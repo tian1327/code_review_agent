@@ -11,6 +11,8 @@ interface BottomSectionProps {
   onResetWorkflow: () => void;
   hasPRData?: boolean;
   onPRDataChange?: (hasData: boolean) => void;
+  prBaseDir?: string | null; // NEW
+  onPRBaseDirChange?: (baseDir: string | null) => void; // NEW
 }
 
 const BottomSection: React.FC<BottomSectionProps> = ({
@@ -19,6 +21,8 @@ const BottomSection: React.FC<BottomSectionProps> = ({
   onResetWorkflow,
   hasPRData = false,
   onPRDataChange,
+  prBaseDir,
+  onPRBaseDirChange,
 }) => {
   return (
     <Box sx={{ mt: 2 }}>
@@ -34,7 +38,7 @@ const BottomSection: React.FC<BottomSectionProps> = ({
               border: '1px solid #e0e0e0',
             }}
           >
-            <InputTabs onReset={onResetWorkflow} onPRDataChange={onPRDataChange} />
+            <InputTabs onReset={onResetWorkflow} onPRDataChange={onPRDataChange} onPRBaseDirChange={onPRBaseDirChange} />
           </Paper>
         </Grid>
 
@@ -49,7 +53,7 @@ const BottomSection: React.FC<BottomSectionProps> = ({
               border: '1px solid #e0e0e0',
             }}
           >
-            <ImageSection />
+            <ImageSection prBaseDir={prBaseDir} />
           </Paper>
         </Grid>
 
@@ -69,6 +73,7 @@ const BottomSection: React.FC<BottomSectionProps> = ({
               onWorkflowUpdate={onWorkflowUpdate}
               onResetWorkflow={onResetWorkflow}
               hasPRData={hasPRData}
+              prBaseDir={prBaseDir}
             />
           </Paper>
         </Grid>

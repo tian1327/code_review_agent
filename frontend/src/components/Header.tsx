@@ -65,7 +65,7 @@ const Header: React.FC = () => {
             marginBottom: 1,
           }}
         >
-          Tian Liu
+          Tian Liu, PhD Intern @ Visa Research
         </Typography>
         <Typography
           variant="body1"

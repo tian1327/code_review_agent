@@ -4,7 +4,6 @@ import {
   Tabs, 
   Tab, 
   Typography, 
-  Paper,
   Chip,
   Alert,
   Button,
@@ -23,7 +22,7 @@ import { WorkflowStep, WorkflowStatus } from '../types/workflow';
 
 const TabPanel = styled(Box)(({ theme }) => ({
   padding: theme.spacing(2, 0),
-  height: '400px', // Match InputTabs output box height
+  height: '500px',
   overflow: 'auto',
 }));
 
@@ -36,8 +35,8 @@ const OutputContent = styled(Box)(({ theme }) => ({
   fontSize: '0.875rem',
   lineHeight: 1.6,
   whiteSpace: 'pre-wrap',
-  height: '340px', // Match the TextField's content area
-  maxHeight: '340px',
+  flex: 1,
+  minHeight: 0,
   overflow: 'auto',
 }));
 
@@ -46,25 +45,47 @@ const stepConfig = [
     step: 'routing' as WorkflowStep,
     label: 'PR Routing',
     icon: <RouteIcon />,
-    description: 'Determines PR complexity and routing decision',
+    description: (
+      <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
+        <li>Reviews problem statement and patch files</li>
+        <li>Analyzes PR complexity and routing decision</li>
+      </ul>
+    ),
   },
   {
     step: 'architect' as WorkflowStep,
     label: 'Architect Analysis',
     icon: <ArchitectureIcon />,
-    description: 'Builds knowledge graph and analyzes architecture',
+    description: (
+      <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
+        <li>Summarizes the PR description and patch files</li>
+        <li>Analyzes entire repo and build knowledge graph</li>
+        <li>Retrieves relevant code snippets from the knowledge graph</li>
+        <li>Generates review plan for each relevant code snippet</li>
+      </ul>
+    ),
   },
   {
     step: 'review' as WorkflowStep,
     label: 'Code Review',
     icon: <ReviewIcon />,
-    description: 'Performs comprehensive code review',
+    description: (
+      <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
+        <li>Checks correctness, quality, and impact of code changes</li>
+        <li>Analyzes each relevant code snippet following the review plan</li>
+      </ul>
+    ),
   },
   {
     step: 'test_generation' as WorkflowStep,
     label: 'Test Generation',
     icon: <TestIcon />,
-    description: 'Generates additional unit tests',
+    description: (
+      <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
+        <li>Retrieves and analyzes existing test cases for the testing classes</li>
+        <li>Generates new test cases for the testing classes</li>
+      </ul>
+    ),
   },
 ];
 
@@ -73,6 +94,7 @@ interface AgentOutputTabsProps {
   onWorkflowUpdate: (step: WorkflowStep, status: WorkflowStatus, output?: any) => void;
   onResetWorkflow: () => void;
   hasPRData?: boolean;
+  prBaseDir?: string | null; // NEW
 }
 
 const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
@@ -80,10 +102,12 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   onWorkflowUpdate,
   onResetWorkflow,
   hasPRData = false,
+  prBaseDir,
 }) => {
   const [tabValue, setTabValue] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [showPRWarning, setShowPRWarning] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -99,6 +123,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
     }
     
     setIsRunning(true);
+    setFetchError(null);
     
     // Simulate workflow execution
     for (let i = 0; i < stepConfig.length; i++) {
@@ -111,10 +136,46 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
       await new Promise(resolve => setTimeout(resolve, 2000 + i * 1000));
       
       // Generate mock output based on step
-      const mockOutput = generateMockOutput(step);
+      let output = generateMockOutput(step);
+      // Try to load agent output from file if prBaseDir is set
+      if (prBaseDir) {
+        const agentFileMap: Record<WorkflowStep, string> = {
+          routing: 'routing_agent.json',
+          architect: 'architect_agent.json',
+          review: 'code_review_agent.json',
+          test_generation: 'test_generation_agent.json',
+        };
+        const agentFile = agentFileMap[step];
+        const url = `${window.location.origin}/${prBaseDir}/agent_outputs/${agentFile}`;
+        console.log('Attempting to fetch agent output:', url, 'prBaseDir:', prBaseDir);
+        try {
+          const resp = await fetch(url);
+          if (resp.ok) {
+            output = await resp.json();
+          } else {
+            setFetchError(`Failed to fetch ${url}: ${resp.status} ${resp.statusText}`);
+          }
+        } catch (e: any) {
+          setFetchError(`Fetch error for ${url}: ${e.message}`);
+          // fallback to mock output
+        }
+      }
       
+      // Special logic after routing step
+      if (step === 'routing') {
+        if (output && output.is_easy === false) {
+          // Mark routing as human review required, stop workflow
+          onWorkflowUpdate(step, 'human_review_required', output);
+          setIsRunning(false);
+          return;
+        }
+      }
       // Mark step as completed and move to next
-      onWorkflowUpdate(step, 'completed', mockOutput);
+      onWorkflowUpdate(step, 'completed', output);
+      // If architect step, notify ImageSection to load knowledge graph
+      if (step === 'architect' && prBaseDir) {
+        window.dispatchEvent(new CustomEvent('load-knowledge-graph', { detail: { prBaseDir } }));
+      }
     }
     
     // Mark workflow as completed
@@ -208,6 +269,9 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   };
 
   const getStepStatus = (step: WorkflowStep) => {
+    if (step === 'routing' && agentOutputs['routing'] && agentOutputs['routing'].is_easy === false) {
+      return 'human_review_required';
+    }
     return agentOutputs[step] ? 'completed' : 'pending';
   };
 
@@ -243,6 +307,11 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
       {showPRWarning && (
         <Alert severity="warning" sx={{ mb: 2, fontSize: '0.75rem' }}>
           Please load a PR file first before starting the workflow.
+        </Alert>
+      )}
+      {fetchError && (
+        <Alert severity="error" sx={{ mb: 2, fontSize: '0.75rem' }}>
+          {fetchError}
         </Alert>
       )}
       
@@ -297,7 +366,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
             id={`agent-tabpanel-${index}`}
             aria-labelledby={`agent-tab-${index}`}
           >
-            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }} hidden={tabValue !== index}>
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
                   {stepInfo.label}
@@ -307,14 +376,18 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
                 </Typography>
                 
                 <Chip
-                  label={status === 'completed' ? 'Completed' : 'Pending'}
-                  color={status === 'completed' ? 'success' : 'default'}
+                  label={status === 'human_review_required' ? 'Human Review Needed' : status === 'completed' ? 'Completed' : 'Pending'}
+                  color={status === 'human_review_required' ? 'error' : status === 'completed' ? 'success' : 'default'}
                   size="small"
                   sx={{ mb: 2 }}
                 />
               </Box>
 
               {status === 'completed' ? (
+                <OutputContent>
+                  {formatOutput(output)}
+                </OutputContent>
+              ) : status === 'human_review_required' ? (
                 <OutputContent>
                   {formatOutput(output)}
                 </OutputContent>

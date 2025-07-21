@@ -1,9 +1,8 @@
 // @ts-ignore
 import ForceGraph2D from 'react-force-graph-2d';
-import React, { useState, useRef } from 'react';
-import { Box, Typography, Button, Alert, Chip, Stack } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, Alert, Chip, Stack } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { CloudUpload as UploadIcon } from '@mui/icons-material';
 
 type NodeType = {
   id: string;
@@ -26,6 +25,10 @@ type ForceGraphFormat = {
   nodes: NodeType[];
   links: EdgeType[];
 };
+
+interface ImageSectionProps {
+  prBaseDir?: string | null;
+}
 
 const GraphContainer = styled(Box)(({ theme }) => ({
   border: '2px dashed #ccc',
@@ -51,7 +54,7 @@ const convertToForceGraphFormat = (data: GraphDataType): ForceGraphFormat => {
 };
 
 // Placeholder repo info (default to N/A)
-const repoInfo = {
+const defaultRepoInfo = {
   files: 'N/A',
   folders: 'N/A',
   modules: 'N/A',
@@ -60,11 +63,14 @@ const repoInfo = {
   methods: 'N/A'
 };
 
-const ImageSection: React.FC = () => {
+const ImageSection: React.FC<ImageSectionProps> = ({ prBaseDir }) => {
   const [graphData, setGraphData] = useState<ForceGraphFormat | null>(null);
   const [graphName, setGraphName] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [repoInfo, setRepoInfo] = useState(defaultRepoInfo);
+  const [repoInfoError, setRepoInfoError] = useState<string | null>(null);
+  // Track if the knowledge graph is loaded
+  const [graphLoaded, setGraphLoaded] = useState(false);
 
   // Listen for global reset event
   React.useEffect(() => {
@@ -72,101 +78,126 @@ const ImageSection: React.FC = () => {
       setGraphData(null);
       setGraphName('');
       setError(null);
+      setRepoInfo(defaultRepoInfo);
+      setGraphLoaded(false);
     };
     window.addEventListener('workflow-reset', handler);
     return () => window.removeEventListener('workflow-reset', handler);
   }, []);
 
-  const handleGraphUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const data = JSON.parse(content) as GraphDataType;
-        if (!data.nodes || !data.edges) throw new Error('Invalid graph format');
-        setGraphData(convertToForceGraphFormat(data));
-        setGraphName(file.name);
-        setError(null);
-      } catch (err) {
-        setError('Failed to load graph: ' + (err instanceof Error ? err.message : 'Unknown error'));
+  // Listen for architect step completion to auto-load knowledge graph
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      const baseDir = e.detail?.prBaseDir || prBaseDir;
+      if (baseDir) {
+        // Load knowledge graph
+        const url = `${window.location.origin}/${baseDir}/agent_outputs/knowledge_graph.json`;
+        fetch(url)
+          .then(resp => resp.json())
+          .then(data => {
+            if (!data.nodes || !data.edges) throw new Error('Invalid graph format');
+            setGraphData(convertToForceGraphFormat(data));
+            setGraphName('knowledge_graph.json');
+            setError(null);
+            setGraphLoaded(true);
+          })
+          .catch(err => {
+            setError('Failed to load graph: ' + (err instanceof Error ? err.message : 'Unknown error'));
+          });
+        // Load repo info
+        const repoInfoUrl = `${window.location.origin}/${baseDir}/agent_outputs/repo_info.json`;
+        fetch(repoInfoUrl)
+          .then(resp => resp.json())
+          .then(data => {
+            console.log('Loaded repo_info.json:', data);
+            setRepoInfo({
+              files: data.files ?? data.Files ?? 'N/A',
+              folders: data.folders ?? data.Folders ?? 'N/A',
+              modules: data.modules ?? data.Modules ?? 'N/A',
+              classes: data.classes ?? data.Classes ?? 'N/A',
+              functions: data.functions ?? data.Functions ?? 'N/A',
+              methods: data.methods ?? data.Methods ?? 'N/A',
+            });
+            setRepoInfoError(null);
+          })
+          .catch((err) => {
+            setRepoInfo(defaultRepoInfo);
+            setRepoInfoError('Failed to load repo_info.json');
+            console.warn('Failed to load repo_info.json:', err);
+          });
       }
     };
-    reader.readAsText(file);
-  };
+    window.addEventListener('load-knowledge-graph', handler);
+    return () => window.removeEventListener('load-knowledge-graph', handler);
+  }, [prBaseDir]);
+
+  // Debug: log repoInfo state on every render
+  console.log('Current repoInfo state:', repoInfo);
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
+      <React.Fragment>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
+            Architect Analysis
+          </Typography>
+        </Box>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, color: '#222', textAlign: 'left', width: '100%' }}>
+          Overall Repo Statistics
+        </Typography>
+        {/* Subheader: Repo Info (grey, two rows, aesthetic layout) */}
+        <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+          <Stack direction="row" spacing={1} sx={{ mb: 0.5, justifyContent: 'center' }}>
+            <Chip label={`Folders: ${repoInfo.folders}`} size="small" sx={{ bgcolor: graphLoaded ? '#b3e5fc' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Files: ${repoInfo.files}`} size="small" sx={{ bgcolor: graphLoaded ? '#c8e6c9' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Modules: ${repoInfo.modules}`} size="small" sx={{ bgcolor: graphLoaded ? '#ffe0b2' : '#e0e0e0', color: '#555' }} />
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
+            <Chip label={`Classes: ${repoInfo.classes}`} size="small" sx={{ bgcolor: graphLoaded ? '#f8bbd0' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Methods: ${repoInfo.methods}`} size="small" sx={{ bgcolor: graphLoaded ? '#d1c4e9' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Functions: ${repoInfo.functions}`} size="small" sx={{ bgcolor: graphLoaded ? '#fff9c4' : '#e0e0e0', color: '#555' }} />
+          </Stack>
+        </Box>
+        {repoInfoError && (
+          <Alert severity="warning" sx={{ mb: 1 }}>{repoInfoError}</Alert>
+        )}
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, mt: 2, color: '#222', textAlign: 'left', width: '100%' }}>
           Knowledge Graph Visualization
         </Typography>
-        <Button
-          variant="outlined"
-          component="label"
-          startIcon={<UploadIcon />}
-          size="small"
-        >
-          Load Graph
-          <input
-            type="file"
-            hidden
-            accept=".json"
-            ref={fileInputRef}
-            onChange={handleGraphUpload}
-          />
-        </Button>
-      </Box>
-      {graphName && (
-        <Typography variant="body2" sx={{ color: '#888', mb: 0.5 }}>{graphName}</Typography>
-      )}
-      {/* Subheader: Repo Info (grey, two rows, aesthetic layout) */}
-      <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-        <Stack direction="row" spacing={1} sx={{ mb: 0.5, justifyContent: 'center' }}>
-          <Chip label={`Folders: ${repoInfo.folders}`} size="small" sx={{ bgcolor: '#e0e0e0', color: '#555', fontWeight: 500 }} />
-          <Chip label={`Files: ${repoInfo.files}`} size="small" sx={{ bgcolor: '#e0e0e0', color: '#555', fontWeight: 500 }} />
-          <Chip label={`Modules: ${repoInfo.modules}`} size="small" sx={{ bgcolor: '#e0e0e0', color: '#555', fontWeight: 500 }} />
-        </Stack>
-        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
-          <Chip label={`Methods: ${repoInfo.methods}`} size="small" sx={{ bgcolor: '#e0e0e0', color: '#555', fontWeight: 500 }} />
-          <Chip label={`Functions: ${repoInfo.functions}`} size="small" sx={{ bgcolor: '#e0e0e0', color: '#555', fontWeight: 500 }} />
-          <Chip label={`Classes: ${repoInfo.classes}`} size="small" sx={{ bgcolor: '#e0e0e0', color: '#555', fontWeight: 500 }} />
-        </Stack>
-      </Box>
-      <Typography variant="body2" sx={{ color: '#666', mb: 1, textAlign: 'left' }}>
-        Each node is a function. Edge from A to B means A calls B.
-      </Typography>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-      )}
-      <GraphContainer>
-        {graphData ? (
-          <ForceGraph2D
-            graphData={graphData}
-            linkDirectionalArrowLength={12}
-            linkDirectionalArrowRelPos={0.95}
-            nodeLabel={(node: NodeType) => node.label}
-            nodeCanvasObject={(node: NodeType, ctx: CanvasRenderingContext2D, globalScale: number) => {
-              ctx.beginPath();
-              ctx.arc(node.x!, node.y!, 18, 0, 2 * Math.PI, false);
-              ctx.fillStyle = '#1976d2';
-              ctx.fill();
-              ctx.strokeStyle = '#fff';
-              ctx.lineWidth = 2;
-              ctx.stroke();
-              // Do not draw label
-            }}
-            linkColor={() => '#888'}
-            width={window.innerWidth / 3.2}
-            height={360}
-          />
-        ) : (
-          <Typography variant="body2" sx={{ color: '#888' }}>
-            No graph loaded. Click "Load Graph" to select a knowledge graph JSON file.
-          </Typography>
+        <Typography variant="body2" sx={{ color: '#666', mb: 1, textAlign: 'left' }}>
+          Each node is a function or method. Edge from A to B means A calls B.
+        </Typography>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
         )}
-      </GraphContainer>
+        <GraphContainer>
+          {graphData ? (
+            <ForceGraph2D
+              graphData={graphData}
+              linkDirectionalArrowLength={12}
+              linkDirectionalArrowRelPos={0.95}
+              nodeLabel={(node: NodeType) => node.label}
+              nodeCanvasObject={(node: NodeType, ctx: CanvasRenderingContext2D, globalScale: number) => {
+                ctx.beginPath();
+                ctx.arc(node.x!, node.y!, 18, 0, 2 * Math.PI, false);
+                ctx.fillStyle = '#1976d2';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                // Do not draw label
+              }}
+              linkColor={() => '#888'}
+              width={window.innerWidth / 3.2}
+              height={360}
+            />
+          ) : (
+            <Typography variant="body2" sx={{ color: '#888' }}>
+              Knowledge graph will appear after Architect Analysis is completed.
+            </Typography>
+          )}
+        </GraphContainer>
+      </React.Fragment>
     </Box>
   );
 };

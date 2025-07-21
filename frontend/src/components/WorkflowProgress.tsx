@@ -99,12 +99,14 @@ interface WorkflowProgressProps {
   currentStep: WorkflowStep | null;
   completedSteps: WorkflowStep[];
   workflowStatus: WorkflowStatus;
+  humanReview?: boolean;
 }
 
 const WorkflowProgress: React.FC<WorkflowProgressProps> = ({
   currentStep,
   completedSteps,
   workflowStatus,
+  humanReview,
 }) => {
   const getStepStatus = (step: WorkflowStep) => {
     // Show completed steps as completed, current step as current, others as pending
@@ -152,7 +154,8 @@ const WorkflowProgress: React.FC<WorkflowProgressProps> = ({
                 />
               </StepBox>
               {index < stepConfig.length - 1 && (
-                <Arrow $isCompleted={isCompleted || isCurrent} />
+                // Arrow is green only if all steps to the left (including this one) are completed
+                <Arrow $isCompleted={completedSteps.includes(stepInfo.step)} />
               )}
             </React.Fragment>
           );
@@ -162,20 +165,25 @@ const WorkflowProgress: React.FC<WorkflowProgressProps> = ({
       {/* Status Summary */}
       <Box sx={{ textAlign: 'center', mt: 3 }}>
         <Chip
-          label={`Status: ${workflowStatus.toUpperCase()}`}
-          color={
+          label={humanReview ? 'Status: Human Review Needed' : `Status: ${workflowStatus.toUpperCase()}`}
+          color={humanReview ? 'error' :
             workflowStatus === 'completed' ? 'success' :
             workflowStatus === 'running' ? 'primary' :
             workflowStatus === 'failed' ? 'error' :
-            'default'
-          }
+            'default'}
           variant="outlined"
           sx={{ fontSize: '1rem', fontWeight: 600 }}
         />
-        {currentStep && (
-          <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary' }}>
-            Currently executing: {stepConfig.find(s => s.step === currentStep)?.title}
-          </Typography>
+        {!humanReview && (
+          workflowStatus === 'completed' ? (
+            <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary', fontWeight: 600 }}>
+              Congratulations! Your PR is ready to be integrated.
+            </Typography>
+          ) : currentStep && (
+            <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary' }}>
+              Currently executing: {stepConfig.find(s => s.step === currentStep)?.title}
+            </Typography>
+          )
         )}
       </Box>
     </Box>

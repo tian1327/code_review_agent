@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Box, 
   Tabs, 
   Tab, 
   Typography, 
   TextField,
-  Paper,
-  Chip,
   Button,
   Alert
 } from '@mui/material';
@@ -33,91 +31,6 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
   },
 }));
 
-const sampleProblemStatement = `# Problem Statement
-
-This PR addresses a critical bug in the xarray library where the 
-DataArray.sel() method was not properly handling multi-dimensional 
-indexing with boolean arrays.
-
-## Issue Description
-- The sel() method was failing when users tried to select data using 
-  boolean arrays with dimensions that didn't match the expected shape
-- This caused runtime errors in data analysis workflows
-- Affected users working with climate and scientific data
-
-## Proposed Solution
-- Add proper dimension checking in the sel() method
-- Implement graceful error handling for mismatched dimensions
-- Add comprehensive test coverage for edge cases
-
-## Impact
-- Fixes data selection issues for scientific computing users
-- Improves robustness of xarray operations
-- Maintains backward compatibility`;
-
-const samplePatch = `diff --git a/xarray/core/dataarray.py b/xarray/core/dataarray.py
-index a1b2c3d..e4f5g6h 100644
---- a/xarray/core/dataarray.py
-+++ b/xarray/core/dataarray.py
-@@ -1234,6 +1234,15 @@ class DataArray(AbstractArray, DataWithCoords):
-         if not isinstance(indexers, dict):
-             raise TypeError("indexers must be a dict")
-         
-+        # Validate boolean array dimensions
-+        for key, value in indexers.items():
-+            if hasattr(value, 'shape') and len(value.shape) > 0:
-+                expected_shape = self.coords[key].shape
-+                if value.shape != expected_shape:
-+                    raise ValueError(
-+                        f"Boolean array shape {value.shape} does not match "
-+                        f"expected shape {expected_shape} for coordinate '{key}'"
-+                    )
-         
-         # Apply selection
-         result = self._obj.sel(indexers, method=method, tolerance=tolerance)`;
-
-const sampleTestPatch = `import pytest
-import numpy as np
-import xarray as xr
-
-def test_sel_boolean_array_validation():
-    """Test that sel() properly validates boolean array dimensions."""
-    
-    # Create test data
-    data = np.random.randn(10, 20)
-    coords = {
-        'x': np.arange(10),
-        'y': np.arange(20)
-    }
-    da = xr.DataArray(data, coords=coords)
-    
-    # Test valid boolean array
-    valid_mask = np.random.choice([True, False], size=(10, 20))
-    result = da.sel(x=valid_mask)
-    assert result is not None
-    
-    # Test invalid boolean array (should raise error)
-    invalid_mask = np.random.choice([True, False], size=(5, 10))
-    with pytest.raises(ValueError, match="Boolean array shape"):
-        da.sel(x=invalid_mask)
-
-def test_sel_boolean_array_edge_cases():
-    """Test edge cases for boolean array selection."""
-    
-    data = np.random.randn(5, 5)
-    coords = {'x': np.arange(5), 'y': np.arange(5)}
-    da = xr.DataArray(data, coords=coords)
-    
-    # Test empty boolean array
-    empty_mask = np.array([], dtype=bool)
-    with pytest.raises(ValueError):
-        da.sel(x=empty_mask)
-    
-    # Test scalar boolean
-    scalar_bool = True
-    result = da.sel(x=scalar_bool)
-    assert result is not None`;
-
 interface PRData {
   "PROBLEM STATEMENT": string;
   "PATCH": string;
@@ -127,13 +40,15 @@ interface PRData {
 interface InputTabsProps {
   onReset?: () => void;
   onPRDataChange?: (hasData: boolean) => void;
+  onPRBaseDirChange?: (baseDir: string | null) => void;
 }
 
-const InputTabs: React.FC<InputTabsProps> = ({ onReset, onPRDataChange }) => {
+const InputTabs: React.FC<InputTabsProps> = ({ onReset, onPRDataChange, onPRBaseDirChange }) => {
   const [tabValue, setTabValue] = useState(0);
   const [prData, setPrData] = useState<PRData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [prFileName, setPrFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Listen for reset events
   useEffect(() => {
@@ -142,6 +57,7 @@ const InputTabs: React.FC<InputTabsProps> = ({ onReset, onPRDataChange }) => {
         setPrData(null);
         setError(null);
         setPrFileName(null);
+        if (onPRBaseDirChange) onPRBaseDirChange(null);
         if (onPRDataChange) {
           onPRDataChange(false);
         }
@@ -154,7 +70,7 @@ const InputTabs: React.FC<InputTabsProps> = ({ onReset, onPRDataChange }) => {
         delete (window as any).resetPRData;
       };
     }
-  }, [onReset, onPRDataChange]);
+  }, [onReset, onPRDataChange, onPRBaseDirChange]);
 
   // Notify parent when PR data changes
   useEffect(() => {
@@ -181,15 +97,31 @@ const InputTabs: React.FC<InputTabsProps> = ({ onReset, onPRDataChange }) => {
         if (!data["PROBLEM STATEMENT"] || !data["PATCH"] || !data["TEST PATCH"]) {
           throw new Error("JSON file must contain 'PROBLEM STATEMENT', 'PATCH', and 'TEST PATCH' fields");
         }
-        
+        // Try to determine the base directory of the PR file
+        let baseDir: string | null = null;
+        if ((file as any).webkitRelativePath) {
+          // Use the parent directory of the file, relative to public/
+          const relPath = (file as any).webkitRelativePath;
+          baseDir = relPath.substring(0, relPath.lastIndexOf('/'));
+        } else {
+          // Use the PR file name (without extension) as the parent directory
+          const fileName = file.name;
+          const dotIdx = fileName.lastIndexOf('.');
+          const folderName = dotIdx !== -1 ? fileName.substring(0, dotIdx) : fileName;
+          baseDir = `pr_examples/${folderName}`;
+        }
         setPrData(data);
         setError(null);
         setPrFileName(file.name);
+        if (onPRBaseDirChange) onPRBaseDirChange(baseDir);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to parse JSON file');
         setPrData(null);
         setPrFileName(null);
+        if (onPRBaseDirChange) onPRBaseDirChange(null);
       }
+      // Reset file input so the same file can be selected again
+      if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsText(file);
   };
@@ -231,6 +163,7 @@ const InputTabs: React.FC<InputTabsProps> = ({ onReset, onPRDataChange }) => {
             hidden
             accept=".json"
             onChange={handleFileUpload}
+            ref={fileInputRef}
           />
         </Button>
       </Box>

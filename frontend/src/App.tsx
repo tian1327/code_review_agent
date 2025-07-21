@@ -11,6 +11,7 @@ const App: React.FC = () => {
   const [completedSteps, setCompletedSteps] = useState<WorkflowStep[]>([]);
   const [agentOutputs, setAgentOutputs] = useState<Record<WorkflowStep, any>>({} as Record<WorkflowStep, any>);
   const [hasPRData, setHasPRData] = useState(false);
+  const [prBaseDir, setPrBaseDir] = useState<string | null>(null); // NEW
 
   const handleWorkflowUpdate = (step: WorkflowStep, status: WorkflowStatus, output?: any) => {
     setCurrentStep(step);
@@ -20,6 +21,10 @@ const App: React.FC = () => {
       if (!completedSteps.includes(step)) {
         setCompletedSteps(prev => [...prev, step]);
       }
+    }
+    // If human review required, do not add to completedSteps
+    if (status === 'human_review_required') {
+      setCompletedSteps([]); // Optionally clear completed steps
     }
     
     if (output) {
@@ -38,6 +43,8 @@ const App: React.FC = () => {
     if ((window as any).resetPRData) {
       (window as any).resetPRData();
     }
+    // Dispatch workflow-reset event for components like ImageSection
+    window.dispatchEvent(new Event('workflow-reset'));
   };
 
   return (
@@ -50,7 +57,15 @@ const App: React.FC = () => {
             currentStep={currentStep}
             completedSteps={completedSteps}
             workflowStatus={workflowStatus}
+            humanReview={workflowStatus === 'human_review_required'}
           />
+          {workflowStatus === 'human_review_required' && (
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <span style={{ color: '#d32f2f', fontWeight: 600, fontSize: '1.1rem' }}>
+                Check output from routing agent below for detailed reasons.
+              </span>
+            </Box>
+          )}
         </Box>
 
         {/* Bottom Section - Three vertical sections */}
@@ -60,6 +75,8 @@ const App: React.FC = () => {
           onResetWorkflow={handleResetWorkflow}
           hasPRData={hasPRData}
           onPRDataChange={setHasPRData}
+          prBaseDir={prBaseDir}
+          onPRBaseDirChange={setPrBaseDir}
         />
       </Container>
     </Box>
