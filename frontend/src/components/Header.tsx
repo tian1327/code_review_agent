@@ -51,7 +51,7 @@ const Header: React.FC = () => {
             letterSpacing: '0.5px',
           }}
         >
-          LLM Agents for Automatic Code Review
+          GenAI Agents for Automatic Pull Request Review
         </Typography>
         <Typography
           variant="h5"
@@ -72,12 +72,12 @@ const Header: React.FC = () => {
           sx={{
             opacity: 0.8,
             fontSize: { xs: '0.8rem', sm: '0.9rem' },
-            maxWidth: '600px',
+            maxWidth: '800px',
             margin: '8px auto 0',
             textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)',
           }}
         >
-          A demo of AI-powered code review workflow using multiple specialized LLM agents
+          Thanks to Xutong Wang, Taigao Ma, Yiran Li, Weijia Xu, Sheng Wang, and Dan Wang for their valuable suggestions!
         </Typography>
       </HeaderContent>
     </HeaderContainer>

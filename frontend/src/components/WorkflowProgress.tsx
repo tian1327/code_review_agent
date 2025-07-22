@@ -23,9 +23,9 @@ const StepBox = styled(Paper)<{ $isCompleted: boolean; $isCurrent: boolean }>(({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  padding: theme.spacing(1.5),
-  minWidth: '140px',
-  minHeight: '100px',
+  padding: theme.spacing(0.5),
+  width: '250px',
+  height: '120px',
   backgroundColor: $isCompleted ? '#4caf50' : $isCurrent ? '#2196f3' : '#e0e0e0',
   color: $isCompleted || $isCurrent ? 'white' : '#666',
   transition: 'all 0.3s ease',
@@ -68,29 +68,36 @@ const StepIcon = styled(Box)(({ theme }) => ({
   },
 }));
 
-const stepConfig = [
+interface StepConfig {
+  step: WorkflowStep;
+  title: string;
+  icon: typeof RouteIcon;
+  description?: string;
+}
+
+const stepConfig: StepConfig[] = [
   {
-    step: 'routing' as WorkflowStep,
-    title: 'PR Routing',
-    description: 'Determine PR complexity',
+    step: 'routing',
+    title: 'PR Routing Agent',
+    // description: 'Determine PR complexity',
     icon: RouteIcon,
   },
   {
-    step: 'architect' as WorkflowStep,
-    title: 'Architect Analysis',
-    description: 'Build knowledge graph',
+    step: 'architect',
+    title: 'Architect Analysis Agent',
+    // description: 'Build knowledge graph',
     icon: ArchitectureIcon,
   },
   {
-    step: 'review' as WorkflowStep,
-    title: 'Code Review',
-    description: 'Review code quality',
+    step: 'review',
+    title: 'PR Review Agent',
+    // description: 'Review code quality',
     icon: ReviewIcon,
   },
   {
-    step: 'test_generation' as WorkflowStep,
-    title: 'Test Generation',
-    description: 'Generate unit tests',
+    step: 'test_generation',
+    title: 'Test Generation Agent',
+    // description: 'Generate unit tests',
     icon: TestIcon,
   },
 ];
@@ -117,9 +124,9 @@ const WorkflowProgress: React.FC<WorkflowProgressProps> = ({
 
   return (
     <Box sx={{ mb: 2 }}>
-      <Typography variant="h4" component="h2" sx={{ mb: 2, textAlign: 'center', fontWeight: 600 }}>
+      {/* <Typography variant="h4" component="h2" sx={{ mb: 1, textAlign: 'center', fontWeight: 600 }}>
         Workflow Progress
-      </Typography>
+      </Typography> */}
       <ProgressContainer>
         {stepConfig.map((stepInfo, index) => {
           const status = getStepStatus(stepInfo.step);
@@ -137,12 +144,14 @@ const WorkflowProgress: React.FC<WorkflowProgressProps> = ({
                 <StepIcon>
                   <IconComponent />
                 </StepIcon>
-                <Typography variant="h6" sx={{ fontWeight: 600, textAlign: 'center', mb: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, textAlign: 'center', mb: 1, wordBreak: 'break-word' }}>
                   {stepInfo.title}
                 </Typography>
-                <Typography variant="body2" sx={{ textAlign: 'center', mb: 1 }}>
-                  {stepInfo.description}
-                </Typography>
+                {stepInfo.description && (
+                  <Typography variant="body2" sx={{ textAlign: 'center', mb: 1, wordBreak: 'break-word' }}>
+                    {stepInfo.description}
+                  </Typography>
+                )}
                 <Chip
                   label={status.toUpperCase()}
                   size="small"
@@ -177,7 +186,7 @@ const WorkflowProgress: React.FC<WorkflowProgressProps> = ({
         {!humanReview && (
           workflowStatus === 'completed' ? (
             <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary', fontWeight: 600 }}>
-              Congratulations! Your PR is ready to be integrated.
+              🎉 Congratulations! Your PR is ready to be integrated.
             </Typography>
           ) : currentStep && (
             <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary' }}>

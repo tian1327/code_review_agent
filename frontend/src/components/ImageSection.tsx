@@ -60,7 +60,7 @@ const defaultRepoInfo = {
   modules: 'N/A',
   classes: 'N/A',
   functions: 'N/A',
-  methods: 'N/A'
+  characters: 'N/A'
 };
 
 const ImageSection: React.FC<ImageSectionProps> = ({ prBaseDir }) => {
@@ -116,7 +116,7 @@ const ImageSection: React.FC<ImageSectionProps> = ({ prBaseDir }) => {
               modules: data.modules ?? data.Modules ?? 'N/A',
               classes: data.classes ?? data.Classes ?? 'N/A',
               functions: data.functions ?? data.Functions ?? 'N/A',
-              methods: data.methods ?? data.Methods ?? 'N/A',
+              characters: data.characters ?? data.Characters ?? 'N/A',
             });
             setRepoInfoError(null);
           })
@@ -134,6 +134,13 @@ const ImageSection: React.FC<ImageSectionProps> = ({ prBaseDir }) => {
   // Debug: log repoInfo state on every render
   console.log('Current repoInfo state:', repoInfo);
 
+  // Helper to format numbers with commas
+  const formatNumber = (val: any) => {
+    if (typeof val === 'number') return val.toLocaleString();
+    if (!isNaN(Number(val))) return Number(val).toLocaleString();
+    return val;
+  };
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <React.Fragment>
@@ -148,14 +155,14 @@ const ImageSection: React.FC<ImageSectionProps> = ({ prBaseDir }) => {
         {/* Subheader: Repo Info (grey, two rows, aesthetic layout) */}
         <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
           <Stack direction="row" spacing={1} sx={{ mb: 0.5, justifyContent: 'center' }}>
-            <Chip label={`Folders: ${repoInfo.folders}`} size="small" sx={{ bgcolor: graphLoaded ? '#b3e5fc' : '#e0e0e0', color: '#555' }} />
-            <Chip label={`Files: ${repoInfo.files}`} size="small" sx={{ bgcolor: graphLoaded ? '#c8e6c9' : '#e0e0e0', color: '#555' }} />
-            <Chip label={`Modules: ${repoInfo.modules}`} size="small" sx={{ bgcolor: graphLoaded ? '#ffe0b2' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Folders: ${formatNumber(repoInfo.folders)}`} size="small" sx={{ bgcolor: graphLoaded ? '#b3e5fc' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Files: ${formatNumber(repoInfo.files)}`} size="small" sx={{ bgcolor: graphLoaded ? '#c8e6c9' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Modules: ${formatNumber(repoInfo.modules)}`} size="small" sx={{ bgcolor: graphLoaded ? '#ffe0b2' : '#e0e0e0', color: '#555' }} />
           </Stack>
           <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
-            <Chip label={`Classes: ${repoInfo.classes}`} size="small" sx={{ bgcolor: graphLoaded ? '#f8bbd0' : '#e0e0e0', color: '#555' }} />
-            <Chip label={`Methods: ${repoInfo.methods}`} size="small" sx={{ bgcolor: graphLoaded ? '#d1c4e9' : '#e0e0e0', color: '#555' }} />
-            <Chip label={`Functions: ${repoInfo.functions}`} size="small" sx={{ bgcolor: graphLoaded ? '#fff9c4' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Classes: ${formatNumber(repoInfo.classes)}`} size="small" sx={{ bgcolor: graphLoaded ? '#f8bbd0' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Functions: ${formatNumber(repoInfo.functions)}`} size="small" sx={{ bgcolor: graphLoaded ? '#d1c4e9' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Characters: ${formatNumber(repoInfo.characters ?? 'N/A')}`} size="small" sx={{ bgcolor: graphLoaded ? '#fff9c4' : '#e0e0e0', color: '#555' }} />
           </Stack>
         </Box>
         {repoInfoError && (
