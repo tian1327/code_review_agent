@@ -18,9 +18,7 @@ const App: React.FC = () => {
     setWorkflowStatus(status);
     
     if (status === 'completed') {
-      if (!completedSteps.includes(step)) {
-        setCompletedSteps(prev => [...prev, step]);
-      }
+      setCompletedSteps(prev => prev.includes(step) ? prev : [...prev, step]);
     }
     // If human review required, do not add to completedSteps
     if (status === 'human_review_required') {
@@ -62,7 +60,7 @@ const App: React.FC = () => {
           {workflowStatus === 'human_review_required' && (
             <Box sx={{ textAlign: 'center', mt: 2 }}>
               <span style={{ color: '#d32f2f', fontWeight: 600, fontSize: '1.1rem' }}>
-                Check output from routing agent below for detailed reasons.
+                Check Routing Agent outputs for detailed reasons.
               </span>
             </Box>
           )}

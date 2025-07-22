@@ -1,9 +1,14 @@
 import React from 'react';
-import { Box, Grid, Paper } from '@mui/material';
-import InputTabs from './InputTabs';
+import { Box, Paper, Tabs, Tab } from '@mui/material';
+import InputTabs, { InputTabsRef } from './InputTabs';
 import ImageSection from './ImageSection';
 import AgentOutputTabs from './AgentOutputTabs';
 import { WorkflowStep, WorkflowStatus } from '../types/workflow';
+import { Button } from '@mui/material';
+import UploadIcon from '@mui/icons-material/Upload';
+import PlayIcon from '@mui/icons-material/PlayArrow';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 interface BottomSectionProps {
   agentOutputs: Record<WorkflowStep, any>;
@@ -24,60 +29,125 @@ const BottomSection: React.FC<BottomSectionProps> = ({
   prBaseDir,
   onPRBaseDirChange,
 }) => {
+  const [tabValue, setTabValue] = React.useState(0);
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  // Ref for InputTabs
+  const inputTabsRef = React.useRef<InputTabsRef>(null);
+
+  // State for loaded PR file name
+  const [prFileName, setPrFileName] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    (window as any).onPRFileNameChange = setPrFileName;
+    return () => { delete (window as any).onPRFileNameChange; };
+  }, []);
+
+  // Listen for external-pr-upload event and call loadPRFile on InputTabs
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      const file = e.detail?.file;
+      if (file && inputTabsRef.current) {
+        inputTabsRef.current.loadPRFile(file);
+      }
+    };
+    window.addEventListener('external-pr-upload', handler);
+    return () => window.removeEventListener('external-pr-upload', handler);
+  }, []);
+
   return (
-    <Box sx={{ mt: 2 }}>
-      <Grid container spacing={3} sx={{ minHeight: '500px' }}>
-        {/* Left Section - Input Tabs */}
-        <Grid item xs={12} md={4}>
-          <Paper 
-            elevation={3} 
-            sx={{ 
-              height: '100%', 
-              p: 2,
-              backgroundColor: '#fafafa',
-              border: '1px solid #e0e0e0',
-            }}
+    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+      <Paper elevation={3} sx={{ height: '100%', p: 2, backgroundColor: '#fafafa', border: '1px solid #e0e0e0', maxWidth: '1200px', width: '100%' }}>
+        {/* Top action buttons */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Button
+            variant="outlined"
+            component="label"
+            startIcon={<UploadIcon />}
+            size="small"
+            sx={{ fontSize: '0.85rem' }}
           >
-            <InputTabs onReset={onResetWorkflow} onPRDataChange={onPRDataChange} onPRBaseDirChange={onPRBaseDirChange} />
-          </Paper>
-        </Grid>
-
-        {/* Center Section - Image */}
-        <Grid item xs={12} md={4}>
-          <Paper 
-            elevation={3} 
-            sx={{ 
-              height: '100%', 
-              p: 2,
-              backgroundColor: '#fafafa',
-              border: '1px solid #e0e0e0',
-            }}
+            Load PR
+            <input
+              type="file"
+              hidden
+              accept=".json"
+              onChange={e => {
+                // Forward to InputTabs handler via custom event
+                const file = e.target.files?.[0];
+                if (file) {
+                  const event = new CustomEvent('external-pr-upload', { detail: { file } });
+                  window.dispatchEvent(event);
+                }
+              }}
+            />
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<PlayIcon />}
+            size="small"
+            sx={{ fontSize: '0.85rem' }}
+            onClick={() => window.dispatchEvent(new Event('external-start-workflow'))}
           >
-            <ImageSection prBaseDir={prBaseDir} />
-          </Paper>
-        </Grid>
-
-        {/* Right Section - Agent Output Tabs */}
-        <Grid item xs={12} md={4}>
-          <Paper 
-            elevation={3} 
-            sx={{ 
-              height: '100%', 
-              p: 2,
-              backgroundColor: '#fafafa',
-              border: '1px solid #e0e0e0',
-            }}
+            Start Workflow
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            size="small"
+            color="secondary"
+            sx={{ fontSize: '0.85rem' }}
+            onClick={onResetWorkflow}
           >
-            <AgentOutputTabs 
+            Reset
+          </Button>
+        </Box>
+        {/* PR data loaded success message below LOAD PR button */}
+        {hasPRData && prFileName && (
+          <Box sx={{ mb: 2 }}>
+            <Paper elevation={0} sx={{ background: 'none', p: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CheckCircleIcon sx={{ color: '#388e3c', fontSize: 22, mr: 0.5 }} />
+                <span style={{ color: '#388e3c', fontWeight: 600, fontSize: '0.95rem' }}>
+                  PR data loaded successfully: {prFileName}
+                </span>
+              </Box>
+            </Paper>
+          </Box>
+        )}
+        <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
+          <Tab label="Pull Request" />
+          <Tab label="Agent Outputs" />
+          <Tab label="Architect Analysis" />
+        </Tabs>
+        <Box sx={{ height: '600px', overflow: 'auto', position: 'relative' }}>
+          {/* Always mount all tabs, only show the selected one */}
+          <Box sx={{ display: tabValue === 0 ? 'block' : 'none', height: '100%' }}>
+            <InputTabs
+              ref={inputTabsRef}
+              onReset={onResetWorkflow}
+              onPRDataChange={onPRDataChange}
+              onPRBaseDirChange={onPRBaseDirChange}
+            />
+          </Box>
+          <Box sx={{ display: tabValue === 1 ? 'block' : 'none', height: '100%' }}>
+            <AgentOutputTabs
               agentOutputs={agentOutputs}
               onWorkflowUpdate={onWorkflowUpdate}
               onResetWorkflow={onResetWorkflow}
               hasPRData={hasPRData}
               prBaseDir={prBaseDir}
+              externalStartEvent="external-start-workflow"
             />
-          </Paper>
-        </Grid>
-      </Grid>
+          </Box>
+          <Box sx={{ display: tabValue === 2 ? 'block' : 'none', height: '100%' }}>
+            <ImageSection
+              prBaseDir={prBaseDir}
+            />
+          </Box>
+        </Box>
+      </Paper>
     </Box>
   );
 };

@@ -144,11 +144,7 @@ const ImageSection: React.FC<ImageSectionProps> = ({ prBaseDir }) => {
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <React.Fragment>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
-            Architect Analysis
-          </Typography>
-        </Box>
+        {/* Removed Architect Analysis header to save space */}
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, color: '#222', textAlign: 'left', width: '100%' }}>
           Overall Repo Statistics
         </Typography>

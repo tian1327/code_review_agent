@@ -24,7 +24,7 @@ const StepBox = styled(Paper)<{ $isCompleted: boolean; $isCurrent: boolean }>(({
   flexDirection: 'column',
   alignItems: 'center',
   padding: theme.spacing(0.5),
-  width: '250px',
+  width: '200px',
   height: '120px',
   backgroundColor: $isCompleted ? '#4caf50' : $isCurrent ? '#2196f3' : '#e0e0e0',
   color: $isCompleted || $isCurrent ? 'white' : '#666',
@@ -144,11 +144,11 @@ const WorkflowProgress: React.FC<WorkflowProgressProps> = ({
                 <StepIcon>
                   <IconComponent />
                 </StepIcon>
-                <Typography variant="h6" sx={{ fontWeight: 600, textAlign: 'center', mb: 1, wordBreak: 'break-word' }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, textAlign: 'center', mb: 1, wordBreak: 'break-word', fontSize: '1rem' }}>
                   {stepInfo.title}
                 </Typography>
                 {stepInfo.description && (
-                  <Typography variant="body2" sx={{ textAlign: 'center', mb: 1, wordBreak: 'break-word' }}>
+                  <Typography variant="body2" sx={{ textAlign: 'center', mb: 1, wordBreak: 'break-word', fontSize: '0.85rem' }}>
                     {stepInfo.description}
                   </Typography>
                 )}

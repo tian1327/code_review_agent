@@ -94,7 +94,8 @@ interface AgentOutputTabsProps {
   onWorkflowUpdate: (step: WorkflowStep, status: WorkflowStatus, output?: any) => void;
   onResetWorkflow: () => void;
   hasPRData?: boolean;
-  prBaseDir?: string | null; // NEW
+  prBaseDir?: string | null;
+  externalStartEvent?: string;
 }
 
 const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
@@ -103,8 +104,20 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   onResetWorkflow,
   hasPRData = false,
   prBaseDir,
+  externalStartEvent,
 }) => {
   const [tabValue, setTabValue] = useState(0);
+  console.log('AgentOutputTabs hasPRData:', hasPRData);
+  // Use a ref to always access the latest hasPRData in event handlers
+  const hasPRDataRef = React.useRef(hasPRData);
+  React.useEffect(() => {
+    hasPRDataRef.current = hasPRData;
+  }, [hasPRData]);
+  // Use a ref to always access the latest prBaseDir in event handlers
+  const prBaseDirRef = React.useRef(prBaseDir);
+  React.useEffect(() => {
+    prBaseDirRef.current = prBaseDir;
+  }, [prBaseDir]);
   const [isRunning, setIsRunning] = useState(false);
   const [showPRWarning, setShowPRWarning] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -114,14 +127,14 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   };
 
   const handleStartWorkflow = async () => {
+    console.log('handleStartWorkflow called, hasPRData:', hasPRDataRef.current, 'prBaseDir:', prBaseDirRef.current);
     // Check if PR data is loaded
-    if (!hasPRData) {
+    if (!hasPRDataRef.current) {
       setShowPRWarning(true);
       // Hide warning after 3 seconds
       setTimeout(() => setShowPRWarning(false), 3000);
       return;
     }
-    
     setIsRunning(true);
     setFetchError(null);
     
@@ -138,7 +151,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
       // Generate mock output based on step
       let output = generateMockOutput(step);
       // Try to load agent output from file if prBaseDir is set
-      if (prBaseDir) {
+      if (prBaseDirRef.current) {
         const agentFileMap: Record<WorkflowStep, string> = {
           routing: 'routing_agent.json',
           architect: 'architect_agent.json',
@@ -146,8 +159,8 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
           test_generation: 'test_generation_agent.json',
         };
         const agentFile = agentFileMap[step];
-        const url = `${window.location.origin}/${prBaseDir}/agent_outputs/${agentFile}`;
-        console.log('Attempting to fetch agent output:', url, 'prBaseDir:', prBaseDir);
+        const url = `${window.location.origin}/${prBaseDirRef.current}/agent_outputs/${agentFile}`;
+        console.log('Attempting to fetch agent output:', url, 'prBaseDir:', prBaseDirRef.current);
         try {
           const resp = await fetch(url);
           if (resp.ok) {
@@ -173,8 +186,8 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
       // Mark step as completed and move to next
       onWorkflowUpdate(step, 'completed', output);
       // If architect step, notify ImageSection to load knowledge graph
-      if (step === 'architect' && prBaseDir) {
-        window.dispatchEvent(new CustomEvent('load-knowledge-graph', { detail: { prBaseDir } }));
+      if (step === 'architect' && prBaseDirRef.current) {
+        window.dispatchEvent(new CustomEvent('load-knowledge-graph', { detail: { prBaseDir: prBaseDirRef.current } }));
       }
     }
     
@@ -275,34 +288,20 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
     return agentOutputs[step] ? 'completed' : 'pending';
   };
 
+  // Listen for external start workflow event
+  React.useEffect(() => {
+    if (!externalStartEvent) return;
+    const handler = () => {
+      console.log('Received external-start-workflow event');
+      handleStartWorkflow();
+    };
+    window.addEventListener(externalStartEvent, handler);
+    return () => window.removeEventListener(externalStartEvent, handler);
+  }, [externalStartEvent]);
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
-          Agent Outputs
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={onResetWorkflow}
-            disabled={isRunning}
-            size="small"
-            color="secondary"
-          >
-            Reset
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={isRunning ? <CircularProgress size={16} /> : <PlayIcon />}
-            onClick={handleStartWorkflow}
-            disabled={isRunning}
-            size="small"
-          >
-            {isRunning ? 'Running...' : 'Start Workflow'}
-          </Button>
-        </Box>
-      </Box>
+      {/* Removed Agent Outputs header to save space */}
       
       {showPRWarning && (
         <Alert severity="warning" sx={{ mb: 2, fontSize: '0.75rem' }}>
