@@ -18,6 +18,7 @@ interface BottomSectionProps {
   onPRDataChange?: (hasData: boolean) => void;
   prBaseDir?: string | null; // NEW
   onPRBaseDirChange?: (baseDir: string | null) => void; // NEW
+  currentStep?: WorkflowStep | null;
 }
 
 const BottomSection: React.FC<BottomSectionProps> = ({
@@ -39,9 +40,20 @@ const BottomSection: React.FC<BottomSectionProps> = ({
 
   // State for loaded PR file name
   const [prFileName, setPrFileName] = React.useState<string | null>(null);
+  // Automatically switch to Pull Request tab when PR is loaded
   React.useEffect(() => {
-    (window as any).onPRFileNameChange = setPrFileName;
+    (window as any).onPRFileNameChange = (fileName: string | null) => {
+      setPrFileName(fileName);
+      if (fileName) setTabValue(0); // Switch to Pull Request tab
+    };
     return () => { delete (window as any).onPRFileNameChange; };
+  }, []);
+
+  // Automatically switch to Agent Outputs tab when START WORKFLOW is clicked
+  React.useEffect(() => {
+    const handler = () => setTabValue(1);
+    window.addEventListener('external-start-workflow', handler);
+    return () => window.removeEventListener('external-start-workflow', handler);
   }, []);
 
   // Listen for external-pr-upload event and call loadPRFile on InputTabs
@@ -54,6 +66,19 @@ const BottomSection: React.FC<BottomSectionProps> = ({
     };
     window.addEventListener('external-pr-upload', handler);
     return () => window.removeEventListener('external-pr-upload', handler);
+  }, []);
+
+  // Automatically switch to Pull Request tab when RESET is clicked
+  React.useEffect(() => {
+    const handler = () => {
+      setTabValue(0);
+      // Also switch InputTabs to Problem Statement tab if ref is available
+      if (inputTabsRef.current && typeof inputTabsRef.current.setTabValue === 'function') {
+        inputTabsRef.current.setTabValue(0);
+      }
+    };
+    window.addEventListener('workflow-reset', handler);
+    return () => window.removeEventListener('workflow-reset', handler);
   }, []);
 
   return (
@@ -73,6 +98,7 @@ const BottomSection: React.FC<BottomSectionProps> = ({
               type="file"
               hidden
               accept=".json"
+              onClick={e => { (e.target as HTMLInputElement).value = ''; }}
               onChange={e => {
                 // Forward to InputTabs handler via custom event
                 const file = e.target.files?.[0];
@@ -139,6 +165,7 @@ const BottomSection: React.FC<BottomSectionProps> = ({
               hasPRData={hasPRData}
               prBaseDir={prBaseDir}
               externalStartEvent="external-start-workflow"
+              currentStep={typeof window !== 'undefined' && (window as any).currentStep !== undefined ? (window as any).currentStep : undefined}
             />
           </Box>
           <Box sx={{ display: tabValue === 2 ? 'block' : 'none', height: '100%' }}>

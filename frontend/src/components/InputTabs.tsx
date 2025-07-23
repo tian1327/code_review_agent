@@ -48,6 +48,7 @@ interface InputTabsProps {
 
 export interface InputTabsRef {
   loadPRFile: (file: File) => void;
+  setTabValue: (value: number) => void;
 }
 
 const InputTabs = forwardRef<InputTabsRef, InputTabsProps>(({ onReset, onPRDataChange, onPRBaseDirChange }, ref) => {
@@ -64,6 +65,7 @@ const InputTabs = forwardRef<InputTabsRef, InputTabsProps>(({ onReset, onPRDataC
         setPrData(null);
         setError(null);
         // setPrFileName(null); // This line is removed
+        if (fileInputRef.current) fileInputRef.current.value = '';
         if (onPRBaseDirChange) onPRBaseDirChange(null);
         if (onPRDataChange) {
           onPRDataChange(false);
@@ -129,7 +131,8 @@ const InputTabs = forwardRef<InputTabsRef, InputTabsProps>(({ onReset, onPRDataC
 
   // Expose loadPRFile to parent via ref
   useImperativeHandle(ref, () => ({
-    loadPRFile: handleFileObject
+    loadPRFile: handleFileObject,
+    setTabValue,
   }));
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -137,6 +140,8 @@ const InputTabs = forwardRef<InputTabsRef, InputTabsProps>(({ onReset, onPRDataC
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Always reset file input so the same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = '';
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -145,7 +150,6 @@ const InputTabs = forwardRef<InputTabsRef, InputTabsProps>(({ onReset, onPRDataC
       try {
         const content = e.target?.result as string;
         const data = JSON.parse(content) as PRData;
-        
         // Validate required fields
         if (!data["PROBLEM STATEMENT"] || !data["PATCH"] || !data["TEST PATCH"]) {
           throw new Error("JSON file must contain 'PROBLEM STATEMENT', 'PATCH', and 'TEST PATCH' fields");
@@ -165,16 +169,16 @@ const InputTabs = forwardRef<InputTabsRef, InputTabsProps>(({ onReset, onPRDataC
         }
         setPrData(data);
         setError(null);
-        // setPrFileName(file.name); // removed, now managed by parent
         if (onPRBaseDirChange) onPRBaseDirChange(baseDir);
+        if (onPRDataChange) onPRDataChange(true);
+        if ((window as any).onPRFileNameChange) (window as any).onPRFileNameChange(file.name);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to parse JSON file');
         setPrData(null);
-        // setPrFileName(null); // removed, now managed by parent
         if (onPRBaseDirChange) onPRBaseDirChange(null);
+        if (onPRDataChange) onPRDataChange(false);
+        if ((window as any).onPRFileNameChange) (window as any).onPRFileNameChange(null);
       }
-      // Reset file input so the same file can be selected again
-      if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsText(file);
   };
@@ -252,7 +256,7 @@ const InputTabs = forwardRef<InputTabsRef, InputTabsProps>(({ onReset, onPRDataC
                     border: '1px solid #e9ecef',
                     borderRadius: 1,
                     p: 2,
-                    fontSize: '1rem',
+                    fontSize: '0.85rem',
                     lineHeight: 1.7,
                     minHeight: 400,
                     maxHeight: 500,
@@ -268,7 +272,7 @@ const InputTabs = forwardRef<InputTabsRef, InputTabsProps>(({ onReset, onPRDataC
                   borderRadius: 1,
                   p: 2,
                   fontFamily: 'monospace',
-                  fontSize: '0.95rem',
+                  fontSize: '0.8rem',
                   minHeight: 400,
                   maxHeight: 500,
                   overflow: 'auto',
@@ -294,7 +298,7 @@ const InputTabs = forwardRef<InputTabsRef, InputTabsProps>(({ onReset, onPRDataC
                   borderRadius: 1,
                   p: 2,
                   fontFamily: 'monospace',
-                  fontSize: '0.95rem',
+                  fontSize: '0.8rem',
                   minHeight: 400,
                   maxHeight: 500,
                   overflow: 'auto',

@@ -16,7 +16,9 @@ import {
   RateReview as ReviewIcon,
   Science as TestIcon,
   PlayArrow as PlayIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  CheckCircle as CheckCircleIcon,
+  CheckCircleOutline as CheckCircleOutlineIcon
 } from '@mui/icons-material';
 import { WorkflowStep, WorkflowStatus } from '../types/workflow';
 
@@ -44,48 +46,43 @@ const stepConfig = [
   {
     step: 'routing' as WorkflowStep,
     label: 'PR Routing',
-    icon: <RouteIcon />,
-    description: (
-      <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
-        <li>Reviews problem statement and patch files</li>
-        <li>Analyzes PR complexity and routing decision</li>
-      </ul>
-    ),
+    icon: <RouteIcon />, 
+    steps: [
+      'Reviewing problem statement and patch file',
+      'Analyzing PR complexity and impact',
+      'Making routing decisions',
+    ],
   },
   {
     step: 'architect' as WorkflowStep,
     label: 'Architect Analysis',
-    icon: <ArchitectureIcon />,
-    description: (
-      <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
-        <li>Summarizes the PR description and patch files</li>
-        <li>Analyzes entire repo and build knowledge graph</li>
-        <li>Retrieves relevant code snippets from the knowledge graph</li>
-        <li>Generates review plan for each relevant code snippet</li>
-      </ul>
-    ),
+    icon: <ArchitectureIcon />, 
+    steps: [
+      'Summarizing problem statement and patch file',
+      'Parsing code base and building knowledge graph',
+      'Retrieving relevant code snippets',
+      'Generating review plan for each relevant code snippet',
+    ],
   },
   {
     step: 'review' as WorkflowStep,
     label: 'Code Review',
-    icon: <ReviewIcon />,
-    description: (
-      <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
-        <li>Checks correctness, quality, and impact of code changes</li>
-        <li>Analyzes each relevant code snippet following the review plan</li>
-      </ul>
-    ),
+    icon: <ReviewIcon />, 
+    steps: [
+      'Checking code change in patch file for correctness, quality, and impact',
+      'Analyzing each relevant code snippet per review plan',
+    ],
   },
   {
     step: 'test_generation' as WorkflowStep,
     label: 'Test Generation',
-    icon: <TestIcon />,
-    description: (
-      <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
-        <li>Retrieves and analyzes existing test cases for the testing classes</li>
-        <li>Generates new test cases for the testing classes</li>
-      </ul>
-    ),
+    icon: <TestIcon />, 
+    steps: [
+      'Parsing text patch file to understand the changes',
+      'Retrieving existing test cases for the testing classes',
+      'Analyzing existing test cases to understand the coverage and edge cases',
+      'Generating new test cases for the testing classes',
+    ],
   },
 ];
 
@@ -96,6 +93,7 @@ interface AgentOutputTabsProps {
   hasPRData?: boolean;
   prBaseDir?: string | null;
   externalStartEvent?: string;
+  currentStep?: WorkflowStep | null;
 }
 
 const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
@@ -105,6 +103,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   hasPRData = false,
   prBaseDir,
   externalStartEvent,
+  currentStep,
 }) => {
   const [tabValue, setTabValue] = useState(0);
   console.log('AgentOutputTabs hasPRData:', hasPRData);
@@ -121,6 +120,9 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   const [isRunning, setIsRunning] = useState(false);
   const [showPRWarning, setShowPRWarning] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // State for substep progress
+  const [substepProgress, setSubstepProgress] = useState<{ [step in WorkflowStep]?: number }>({});
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -141,16 +143,20 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
     // Simulate workflow execution
     for (let i = 0; i < stepConfig.length; i++) {
       const step = stepConfig[i].step;
-      
+      const substeps = stepConfig[i].steps;
       // Mark step as current (running)
       onWorkflowUpdate(step, 'running');
-      
+      // Animate substeps
+      for (let j = 0; j < substeps.length; j++) {
+        setSubstepProgress(prev => ({ ...prev, [step]: j }));
+        await new Promise(resolve => setTimeout(resolve, 900));
+      }
+      setSubstepProgress(prev => ({ ...prev, [step]: substeps.length }));
       // Simulate step execution
-      await new Promise(resolve => setTimeout(resolve, 2000 + i * 1000));
-      
+      await new Promise(resolve => setTimeout(resolve, 800));
       // Generate mock output based on step
       let output = generateMockOutput(step);
-      // Try to load agent output from file if prBaseDir is set
+      // Try to load agent output from file if prBaseDirRef.current is set
       if (prBaseDirRef.current) {
         const agentFileMap: Record<WorkflowStep, string> = {
           routing: 'routing_agent.json',
@@ -173,7 +179,6 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
           // fallback to mock output
         }
       }
-      
       // Special logic after routing step
       if (step === 'routing') {
         if (output && output.is_easy === false) {
@@ -356,7 +361,17 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
       {stepConfig.map((stepInfo, index) => {
         const output = agentOutputs[stepInfo.step];
         const status = getStepStatus(stepInfo.step);
-        
+        // Determine if this is the currently running step
+        const isStepRunning = currentStep === stepInfo.step && isRunning;
+        // For the running step, use substepProgress; for completed, show all; for pending, show all as pending
+        let currentSubstep = stepInfo.steps.length;
+        if (isStepRunning && typeof substepProgress[stepInfo.step] === 'number') {
+          currentSubstep = substepProgress[stepInfo.step]!;
+        } else if (status === 'completed') {
+          currentSubstep = stepInfo.steps.length;
+        } else if (status === 'pending') {
+          currentSubstep = 0;
+        }
         return (
           <TabPanel
             key={index}
@@ -370,10 +385,12 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
                   {stepInfo.label}
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                  {stepInfo.description}
-                </Typography>
-                
+                <VerticalStepper
+                  steps={stepInfo.steps}
+                  current={currentSubstep}
+                  completed={status === 'completed'}
+                  isRunning={isStepRunning}
+                />
                 <Chip
                   label={status === 'human_review_required' ? 'Human Review Needed' : status === 'completed' ? 'Completed' : 'Pending'}
                   color={status === 'human_review_required' ? 'error' : status === 'completed' ? 'success' : 'default'}
@@ -381,7 +398,6 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
                   sx={{ mb: 2 }}
                 />
               </Box>
-
               {status === 'completed' ? (
                 <OutputContent>
                   {formatOutput(output)}
@@ -399,6 +415,81 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
               )}
             </Box>
           </TabPanel>
+        );
+      })}
+    </Box>
+  );
+};
+
+// Helper: vertical stepper for agent substeps
+const VerticalStepper: React.FC<{
+  steps: string[];
+  current: number;
+  completed: boolean;
+  isRunning: boolean;
+}> = ({ steps, current, completed, isRunning }) => {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', ml: 1, mb: 2 }}>
+      {steps.map((label, idx) => {
+        let icon, textColor, lineColor;
+        const completed = idx < current;
+        const running = idx === current && isRunning;
+        const isInitial = !isRunning && current === 0;
+        if (isInitial) {
+          icon = <CheckCircleOutlineIcon sx={{ color: '#bdbdbd', fontSize: 22 }} />;
+          textColor = '#888';
+          lineColor = '#bdbdbd';
+        } else if (completed) {
+          icon = <CheckCircleIcon sx={{ color: '#388e3c', fontSize: 22 }} />;
+          textColor = '#111';
+          lineColor = '#388e3c';
+        } else if (running) {
+          icon = <CircularProgress size={20} sx={{ color: '#1976d2' }} />;
+          textColor = '#111';
+          lineColor = '#1976d2';
+        } else {
+          icon = <CheckCircleOutlineIcon sx={{ color: '#bdbdbd', fontSize: 22 }} />;
+          textColor = '#888';
+          lineColor = '#bdbdbd';
+        }
+        return (
+          <Box key={label} sx={{ display: 'flex', alignItems: 'flex-start', position: 'relative', mb: 1, minHeight: 36 }}>
+            {/* Icon and vertical dashed line */}
+            <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', mr: 1, zIndex: 1 }}>
+              <Box sx={{
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                background: 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {icon}
+              </Box>
+              {idx < steps.length - 1 && (
+                <Box
+                  sx={{
+                    width: 2,
+                    height: 28,
+                    borderLeft: '2px dashed #bdbdbd',
+                    marginTop: 0,
+                  }}
+                />
+              )}
+            </Box>
+            {/* Step label */}
+            <Typography
+              variant="body2"
+              sx={{
+                color: textColor,
+                fontWeight: 400,
+                fontSize: '1rem',
+              }}
+            >
+              {label}
+            </Typography>
+          </Box>
         );
       })}
     </Box>

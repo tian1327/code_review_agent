@@ -154,8 +154,6 @@ const ImageSection: React.FC<ImageSectionProps> = ({ prBaseDir }) => {
             <Chip label={`Folders: ${formatNumber(repoInfo.folders)}`} size="small" sx={{ bgcolor: graphLoaded ? '#b3e5fc' : '#e0e0e0', color: '#555' }} />
             <Chip label={`Files: ${formatNumber(repoInfo.files)}`} size="small" sx={{ bgcolor: graphLoaded ? '#c8e6c9' : '#e0e0e0', color: '#555' }} />
             <Chip label={`Modules: ${formatNumber(repoInfo.modules)}`} size="small" sx={{ bgcolor: graphLoaded ? '#ffe0b2' : '#e0e0e0', color: '#555' }} />
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
             <Chip label={`Classes: ${formatNumber(repoInfo.classes)}`} size="small" sx={{ bgcolor: graphLoaded ? '#f8bbd0' : '#e0e0e0', color: '#555' }} />
             <Chip label={`Functions: ${formatNumber(repoInfo.functions)}`} size="small" sx={{ bgcolor: graphLoaded ? '#d1c4e9' : '#e0e0e0', color: '#555' }} />
             <Chip label={`Characters: ${formatNumber(repoInfo.characters ?? 'N/A')}`} size="small" sx={{ bgcolor: graphLoaded ? '#fff9c4' : '#e0e0e0', color: '#555' }} />

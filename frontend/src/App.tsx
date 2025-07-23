@@ -75,6 +75,7 @@ const App: React.FC = () => {
           onPRDataChange={setHasPRData}
           prBaseDir={prBaseDir}
           onPRBaseDirChange={setPrBaseDir}
+          currentStep={currentStep}
         />
       </Container>
     </Box>
