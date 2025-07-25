@@ -116,7 +116,8 @@ const WorkflowProgress: React.FC<WorkflowProgressProps> = ({
   humanReview,
 }) => {
   const getStepStatus = (step: WorkflowStep) => {
-    // Show completed steps as completed, current step as current, others as pending
+    // If human review is needed, show the current step as 'current' (blue), not completed
+    if (humanReview && currentStep === step) return 'current';
     if (completedSteps.includes(step)) return 'completed';
     if (currentStep === step) return 'current';
     return 'pending';

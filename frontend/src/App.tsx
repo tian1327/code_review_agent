@@ -20,10 +20,10 @@ const App: React.FC = () => {
     if (status === 'completed') {
       setCompletedSteps(prev => prev.includes(step) ? prev : [...prev, step]);
     }
-    // If human review required, do not add to completedSteps
-    if (status === 'human_review_required') {
-      setCompletedSteps([]); // Optionally clear completed steps
-    }
+    // Do NOT clear completedSteps when human_review_required; keep previous steps green
+    // if (status === 'human_review_required') {
+    //   setCompletedSteps([]); // Optionally clear completed steps
+    // }
     
     if (output) {
       setAgentOutputs(prev => ({ ...prev, [step]: output }));
@@ -60,7 +60,7 @@ const App: React.FC = () => {
           {workflowStatus === 'human_review_required' && (
             <Box sx={{ textAlign: 'center', mt: 2 }}>
               <span style={{ color: '#d32f2f', fontWeight: 600, fontSize: '1.1rem' }}>
-                Check Routing Agent outputs for detailed reasons.
+                Check Agent outputs for detailed reasons.
               </span>
             </Box>
           )}
@@ -76,6 +76,7 @@ const App: React.FC = () => {
           prBaseDir={prBaseDir}
           onPRBaseDirChange={setPrBaseDir}
           currentStep={currentStep}
+          completedSteps={completedSteps}
         />
       </Container>
     </Box>

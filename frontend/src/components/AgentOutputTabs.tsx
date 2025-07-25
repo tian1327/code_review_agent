@@ -94,6 +94,7 @@ interface AgentOutputTabsProps {
   prBaseDir?: string | null;
   externalStartEvent?: string;
   currentStep?: WorkflowStep | null;
+  completedSteps: WorkflowStep[];
 }
 
 const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
@@ -104,6 +105,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   prBaseDir,
   externalStartEvent,
   currentStep,
+  completedSteps,
 }) => {
   const [tabValue, setTabValue] = useState(0);
   console.log('AgentOutputTabs hasPRData:', hasPRData);
@@ -124,7 +126,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   // State for substep progress
   const [substepProgress, setSubstepProgress] = useState<{ [step in WorkflowStep]?: number }>({});
   // Track completed steps for correct substep rendering after human review
-  const [completedSteps, setCompletedSteps] = useState<WorkflowStep[]>([]);
+  // const [completedSteps, setCompletedSteps] = useState<WorkflowStep[]>([]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -186,7 +188,6 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
       }
       // Mark step as completed and move to next
       onWorkflowUpdate(step, 'completed', output);
-      setCompletedSteps(prev => prev.includes(step) ? prev : [...prev, step]);
       // Move the human review check to after a short delay, to ensure UI updates
       if (step === 'routing' && output && output.requires_human_review === true) {
         // Wait for a tick to let the UI update to completed
@@ -324,7 +325,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   React.useEffect(() => {
     const handler = () => {
       setSubstepProgress({});
-      setCompletedSteps([]);
+      // setCompletedSteps([]); // This will be handled by the parent component
     };
     window.addEventListener('workflow-reset', handler);
     return () => window.removeEventListener('workflow-reset', handler);
@@ -394,7 +395,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
         let isStepCompleted = false;
         if (isStepRunning && typeof substepProgress[stepInfo.step] === 'number') {
           currentSubstep = substepProgress[stepInfo.step]!;
-        } else if (status === 'completed' || completedSteps.includes(stepInfo.step) || status === 'human_review_required') {
+        } else if (status === 'completed' || completedSteps.includes(stepInfo.step) || (status === 'human_review_required' && completedSteps.includes(stepInfo.step))) {
           currentSubstep = stepInfo.steps.length;
           isStepCompleted = true;
         } else {
@@ -428,24 +429,22 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
                   size="small"
                   sx={{ mb: 2 }}
                 />
+                {status === 'human_review_required' && stepInfo.step === 'review' && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    <Typography variant="body2">
+                      Check Code Review Agent output for detailed reasons.
+                    </Typography>
+                  </Alert>
+                )}
               </Box>
               {status === 'completed' ? (
                 <OutputContent>
                   {formatOutput(output)}
                 </OutputContent>
               ) : status === 'human_review_required' ? (
-                <>
-                  <OutputContent>
-                    {formatOutput(output)}
-                  </OutputContent>
-                  <Alert severity="warning" sx={{ mt: 2 }}>
-                    <Typography variant="body2">
-                      {stepInfo.step === 'review'
-                        ? 'Check Code Review Agent output for detailed reasons.'
-                        : 'Check Routing Agent output for detailed reasons.'}
-                    </Typography>
-                  </Alert>
-                </>
+                <OutputContent>
+                  {formatOutput(output)}
+                </OutputContent>
               ) : (
                 <Alert severity="info">
                   <Typography variant="body2">

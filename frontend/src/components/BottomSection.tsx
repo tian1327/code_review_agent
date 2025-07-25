@@ -19,6 +19,7 @@ interface BottomSectionProps {
   prBaseDir?: string | null; // NEW
   onPRBaseDirChange?: (baseDir: string | null) => void; // NEW
   currentStep?: WorkflowStep | null;
+  completedSteps: WorkflowStep[];
 }
 
 const BottomSection: React.FC<BottomSectionProps> = ({
@@ -29,6 +30,7 @@ const BottomSection: React.FC<BottomSectionProps> = ({
   onPRDataChange,
   prBaseDir,
   onPRBaseDirChange,
+  completedSteps,
 }) => {
   const [tabValue, setTabValue] = React.useState(0);
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -166,6 +168,7 @@ const BottomSection: React.FC<BottomSectionProps> = ({
               prBaseDir={prBaseDir}
               externalStartEvent="external-start-workflow"
               currentStep={typeof window !== 'undefined' && (window as any).currentStep !== undefined ? (window as any).currentStep : undefined}
+              completedSteps={completedSteps}
             />
           </Box>
           <Box sx={{ display: tabValue === 2 ? 'block' : 'none', height: '100%' }}>
