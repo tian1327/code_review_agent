@@ -156,7 +156,7 @@ const ImageSection: React.FC<ImageSectionProps> = ({ prBaseDir }) => {
             <Chip label={`Modules: ${formatNumber(repoInfo.modules)}`} size="small" sx={{ bgcolor: graphLoaded ? '#ffe0b2' : '#e0e0e0', color: '#555' }} />
             <Chip label={`Classes: ${formatNumber(repoInfo.classes)}`} size="small" sx={{ bgcolor: graphLoaded ? '#f8bbd0' : '#e0e0e0', color: '#555' }} />
             <Chip label={`Functions: ${formatNumber(repoInfo.functions)}`} size="small" sx={{ bgcolor: graphLoaded ? '#d1c4e9' : '#e0e0e0', color: '#555' }} />
-            <Chip label={`Characters: ${formatNumber(repoInfo.characters ?? 'N/A')}`} size="small" sx={{ bgcolor: graphLoaded ? '#fff9c4' : '#e0e0e0', color: '#555' }} />
+            <Chip label={`Words: ${formatNumber(repoInfo.characters ?? 'N/A')}`} size="small" sx={{ bgcolor: graphLoaded ? '#fff9c4' : '#e0e0e0', color: '#555' }} />
           </Stack>
         </Box>
         {repoInfoError && (
@@ -166,7 +166,7 @@ const ImageSection: React.FC<ImageSectionProps> = ({ prBaseDir }) => {
           Knowledge Graph Visualization
         </Typography>
         <Typography variant="body2" sx={{ color: '#666', mb: 1, textAlign: 'left' }}>
-          Each node is a function or method. Edge from A to B means A calls B.
+          Each node is a function. Edge from A to B means function A calls B.
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>

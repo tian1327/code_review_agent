@@ -1,0 +1,25 @@
+{
+    "architect_info": {
+      "files_affected": 3,
+      "complexity_score": 0.6,
+      "architectural_impact": "low",
+      "dependencies_analyzed": 15
+    },
+    "kd_graph": {
+      "nodes": 15,
+      "edges": 25,
+      "centrality_scores": {
+        "DataArray.sel": 0.8,
+        "validation_utils": 0.6
+      }
+    },
+    "file_function_map": {
+      "xarray/core/dataarray.py": [
+        "sel",
+        "validate_indexers"
+      ],
+      "xarray/core/utils.py": [
+        "validate_boolean_array"
+      ]
+    }
+}

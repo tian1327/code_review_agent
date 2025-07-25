@@ -145,7 +145,7 @@ const BottomSection: React.FC<BottomSectionProps> = ({
         <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
           <Tab label="Pull Request" />
           <Tab label="Agent Outputs" />
-          <Tab label="Architect Analysis" />
+          <Tab label="Knowledge Graph" />
         </Tabs>
         <Box sx={{ height: '600px', overflow: 'auto', position: 'relative' }}>
           {/* Always mount all tabs, only show the selected one */}

@@ -123,6 +123,8 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
 
   // State for substep progress
   const [substepProgress, setSubstepProgress] = useState<{ [step in WorkflowStep]?: number }>({});
+  // Track completed steps for correct substep rendering after human review
+  const [completedSteps, setCompletedSteps] = useState<WorkflowStep[]>([]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -148,12 +150,15 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
       onWorkflowUpdate(step, 'running');
       // Animate substeps
       for (let j = 0; j < substeps.length; j++) {
+        // Set current substep index (spinner)
         setSubstepProgress(prev => ({ ...prev, [step]: j }));
-        await new Promise(resolve => setTimeout(resolve, 900));
+        await new Promise(requestAnimationFrame);
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
+      // After all substeps, mark as completed
       setSubstepProgress(prev => ({ ...prev, [step]: substeps.length }));
-      // Simulate step execution
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Simulate step execution (short pause between steps)
+      await new Promise(resolve => setTimeout(resolve, 300));
       // Generate mock output based on step
       let output = generateMockOutput(step);
       // Try to load agent output from file if prBaseDirRef.current is set
@@ -179,17 +184,24 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
           // fallback to mock output
         }
       }
-      // Special logic after routing step
-      if (step === 'routing') {
-        if (output && output.is_easy === false) {
-          // Mark routing as human review required, stop workflow
-          onWorkflowUpdate(step, 'human_review_required', output);
-          setIsRunning(false);
-          return;
-        }
-      }
       // Mark step as completed and move to next
       onWorkflowUpdate(step, 'completed', output);
+      setCompletedSteps(prev => prev.includes(step) ? prev : [...prev, step]);
+      // Move the human review check to after a short delay, to ensure UI updates
+      if (step === 'routing' && output && output.requires_human_review === true) {
+        // Wait for a tick to let the UI update to completed
+        await new Promise(resolve => setTimeout(resolve, 50));
+        onWorkflowUpdate(step, 'human_review_required', output);
+        setIsRunning(false);
+        return;
+      }
+      // Human review for code review agent
+      if (step === 'review' && output && output.no_issues === false) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        onWorkflowUpdate(step, 'human_review_required', output);
+        setIsRunning(false);
+        return;
+      }
       // If architect step, notify ImageSection to load knowledge graph
       if (step === 'architect' && prBaseDirRef.current) {
         window.dispatchEvent(new CustomEvent('load-knowledge-graph', { detail: { prBaseDir: prBaseDirRef.current } }));
@@ -205,7 +217,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
     switch (step) {
       case 'routing':
         return {
-          is_easy: true,
+          requires_human_review: false,
           reason: "PR contains simple bug fixes and follows established patterns. The changes are well-contained and don't introduce architectural complexity.",
           confidence: 0.85
         };
@@ -232,6 +244,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
         };
       case 'review':
         return {
+          no_issues: true,
           overall_good: true,
           reasons: [
             "Code follows PEP 8 style guidelines",
@@ -287,7 +300,10 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
   };
 
   const getStepStatus = (step: WorkflowStep) => {
-    if (step === 'routing' && agentOutputs['routing'] && agentOutputs['routing'].is_easy === false) {
+    if (step === 'routing' && agentOutputs['routing'] && agentOutputs['routing'].requires_human_review === true) {
+      return 'human_review_required';
+    }
+    if (step === 'review' && agentOutputs['review'] && agentOutputs['review'].no_issues === false) {
       return 'human_review_required';
     }
     return agentOutputs[step] ? 'completed' : 'pending';
@@ -303,6 +319,16 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
     window.addEventListener(externalStartEvent, handler);
     return () => window.removeEventListener(externalStartEvent, handler);
   }, [externalStartEvent]);
+
+  // Listen for reset event to clear substep progress and completed steps
+  React.useEffect(() => {
+    const handler = () => {
+      setSubstepProgress({});
+      setCompletedSteps([]);
+    };
+    window.addEventListener('workflow-reset', handler);
+    return () => window.removeEventListener('workflow-reset', handler);
+  }, []);
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -363,15 +389,20 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
         const status = getStepStatus(stepInfo.step);
         // Determine if this is the currently running step
         const isStepRunning = currentStep === stepInfo.step && isRunning;
-        // For the running step, use substepProgress; for completed, show all; for pending, show all as pending
-        let currentSubstep = stepInfo.steps.length;
+        // For the running step, use substepProgress; for completed or human_review_required, show all; for pending, show all as pending
+        let currentSubstep = 0;
+        let isStepCompleted = false;
         if (isStepRunning && typeof substepProgress[stepInfo.step] === 'number') {
           currentSubstep = substepProgress[stepInfo.step]!;
-        } else if (status === 'completed') {
+        } else if (status === 'completed' || completedSteps.includes(stepInfo.step) || status === 'human_review_required') {
           currentSubstep = stepInfo.steps.length;
-        } else if (status === 'pending') {
+          isStepCompleted = true;
+        } else {
+          // Default: before agent starts, all substeps are grey
           currentSubstep = 0;
+          isStepCompleted = false;
         }
+        // Pass isStepCompleted to VerticalStepper for correct rendering
         return (
           <TabPanel
             key={index}
@@ -388,7 +419,7 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
                 <VerticalStepper
                   steps={stepInfo.steps}
                   current={currentSubstep}
-                  completed={status === 'completed'}
+                  completed={isStepCompleted}
                   isRunning={isStepRunning}
                 />
                 <Chip
@@ -403,9 +434,18 @@ const AgentOutputTabs: React.FC<AgentOutputTabsProps> = ({
                   {formatOutput(output)}
                 </OutputContent>
               ) : status === 'human_review_required' ? (
-                <OutputContent>
-                  {formatOutput(output)}
-                </OutputContent>
+                <>
+                  <OutputContent>
+                    {formatOutput(output)}
+                  </OutputContent>
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      {stepInfo.step === 'review'
+                        ? 'Check Code Review Agent output for detailed reasons.'
+                        : 'Check Routing Agent output for detailed reasons.'}
+                    </Typography>
+                  </Alert>
+                </>
               ) : (
                 <Alert severity="info">
                   <Typography variant="body2">
@@ -431,26 +471,24 @@ const VerticalStepper: React.FC<{
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', ml: 1, mb: 2 }}>
       {steps.map((label, idx) => {
-        let icon, textColor, lineColor;
-        const completed = idx < current;
-        const running = idx === current && isRunning;
-        const isInitial = !isRunning && current === 0;
-        if (isInitial) {
-          icon = <CheckCircleOutlineIcon sx={{ color: '#bdbdbd', fontSize: 22 }} />;
-          textColor = '#888';
-          lineColor = '#bdbdbd';
-        } else if (completed) {
+        let icon, textColor;
+        if (completed) {
           icon = <CheckCircleIcon sx={{ color: '#388e3c', fontSize: 22 }} />;
           textColor = '#111';
-          lineColor = '#388e3c';
-        } else if (running) {
-          icon = <CircularProgress size={20} sx={{ color: '#1976d2' }} />;
-          textColor = '#111';
-          lineColor = '#1976d2';
+        } else if (isRunning) {
+          if (idx < current) {
+            icon = <CheckCircleIcon sx={{ color: '#388e3c', fontSize: 22 }} />;
+            textColor = '#111';
+          } else if (idx === current) {
+            icon = <CircularProgress size={20} sx={{ color: '#1976d2' }} />;
+            textColor = '#111';
+          } else {
+            icon = <CheckCircleOutlineIcon sx={{ color: '#bdbdbd', fontSize: 22 }} />;
+            textColor = '#888';
+          }
         } else {
           icon = <CheckCircleOutlineIcon sx={{ color: '#bdbdbd', fontSize: 22 }} />;
           textColor = '#888';
-          lineColor = '#bdbdbd';
         }
         return (
           <Box key={label} sx={{ display: 'flex', alignItems: 'flex-start', position: 'relative', mb: 1, minHeight: 36 }}>

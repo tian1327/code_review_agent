@@ -1,5 +1,4 @@
 {
-    "PR_id": "pydata__xarray-6992",
-    "requires_human_review": false,
+    "is_easy": true,
     "reason": "PR contains simple bug fixes and follows established patterns. The changes are well-contained and don't introduce architectural complexity."
 }

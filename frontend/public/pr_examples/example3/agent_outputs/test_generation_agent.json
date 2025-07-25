@@ -1,0 +1,15 @@
+{
+    "new_test_cases": [
+      {
+        "test_name": "test_sel_boolean_array_validation",
+        "test_code": "def test_sel_boolean_array_validation():\n    \"\"\"Test that sel() properly validates boolean array dimensions.\"\"\"\n    data = np.random.randn(10, 20)\n    coords = {'x': np.arange(10), 'y': np.arange(20)}\n    da = xr.DataArray(data, coords=coords)\n    \n    # Test valid boolean array\n    valid_mask = np.random.choice([True, False], size=(10, 20))\n    result = da.sel(x=valid_mask)\n    assert result is not None",
+        "coverage_type": "edge_case"
+      },
+      {
+        "test_name": "test_sel_boolean_array_error_handling",
+        "test_code": "def test_sel_boolean_array_error_handling():\n    \"\"\"Test error handling for invalid boolean arrays.\"\"\"\n    data = np.random.randn(5, 5)\n    coords = {'x': np.arange(5), 'y': np.arange(5)}\n    da = xr.DataArray(data, coords=coords)\n    \n    # Test invalid boolean array\n    invalid_mask = np.random.choice([True, False], size=(3, 3))\n    with pytest.raises(ValueError, match=\"Boolean array shape\"):\n        da.sel(x=invalid_mask)",
+        "coverage_type": "error_handling"
+      }
+    ],
+    "coverage_improvement": 0.15
+}

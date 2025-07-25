@@ -1,0 +1,17 @@
+{
+  "no_issues": false,
+  "reasons": [
+    "Introduces potential performance bottlenecks due to nested loops",
+    "Missing input validation for user-provided data",
+    "Breaks backward compatibility for legacy API consumers",
+    "Relies on deprecated library functions that may be removed in future versions",
+    "Lacks sufficient logging for debugging in production environments"
+  ],
+  "issues": [
+    "Function `process_data()` may cause memory bloat with large input files",
+    "No unit tests provided for new edge cases introduced in `utils.py`",
+    "Hard-coded file paths reduce portability across different environments",
+    "Potential race condition in multi-threaded execution of `worker.py`",
+    "Use of `eval()` on user input in `config_loader.py` is a security risk"
+  ]
+}
